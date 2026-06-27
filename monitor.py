@@ -15,6 +15,7 @@ from backend.config import (
     CHAIN_CONFIG, DEFAULT_CHAIN, YOUR_PRIVATE_KEY, YOUR_WALLET_ADDRESS,
     MONITOR_INTERVAL_SECONDS, MAX_GAS_PRICE_GWEI, GAS_MULTIPLIER, LOG_FILE
 )
+from backend.config import normalize_private_key
 from backend.deployer import get_web3
 
 from web3 import Web3
@@ -39,7 +40,12 @@ class DrainMonitor:
         
         # Connect
         self.w3, _ = get_web3(chain_name)
-        self.account = self.w3.eth.account.from_key(YOUR_PRIVATE_KEY)
+        try:
+            private_key = normalize_private_key(YOUR_PRIVATE_KEY)
+        except ValueError as exc:
+            self.log(f"[!] {exc}")
+            sys.exit(1)
+        self.account = self.w3.eth.account.from_key(private_key)
         
         # Load deployment
         deploy_path = Path("deployment_info.json")

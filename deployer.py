@@ -19,6 +19,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.config import CHAIN_CONFIG, DEFAULT_CHAIN, YOUR_PRIVATE_KEY, YOUR_WALLET_ADDRESS
 from backend.config import CONTRACTS_DIR
+from backend.config import normalize_private_key
 
 
 def load_compiled_contract(contract_name):
@@ -58,7 +59,13 @@ def deploy_contract(w3, contract_json, *args, private_key=None, gas=3000000):
     """Deploy a contract and return the address."""
     if private_key is None:
         private_key = YOUR_PRIVATE_KEY
-    
+
+    try:
+        private_key = normalize_private_key(private_key)
+    except ValueError as exc:
+        print(f"[!] {exc}")
+        sys.exit(1)
+
     account = w3.eth.account.from_key(private_key)
     sender = account.address
     

