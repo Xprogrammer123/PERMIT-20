@@ -122,6 +122,28 @@ CHAIN_CONFIG = {
     },
 
     # ── SOLANA (NON-EVM) ─────────────────────────────────────
+    "solana_devnet": {
+        "chain_type": "solana",
+        "chain_id": 103,  # Solana devnet cluster ID
+        "rpc": "https://api.devnet.solana.com",
+        "rpc_wss": "wss://api.devnet.solana.com",
+        "explorer": "https://explorer.solana.com?cluster=devnet",
+        "currency": "SOL",
+        "decimals": 9,
+        "high_value_tokens": {},
+        "dex_programs": {}
+    },
+    "solana_testnet": {
+        "chain_type": "solana",
+        "chain_id": 102,  # Solana testnet cluster ID
+        "rpc": "https://api.testnet.solana.com",
+        "rpc_wss": "wss://api.testnet.solana.com",
+        "explorer": "https://explorer.solana.com?cluster=testnet",
+        "currency": "SOL",
+        "decimals": 9,
+        "high_value_tokens": {},
+        "dex_programs": {}
+    },
     "solana": {
         "chain_type": "solana",
         "chain_id": 101,  # Solana mainnet-beta cluster ID

