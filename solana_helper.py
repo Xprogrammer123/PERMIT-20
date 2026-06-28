@@ -10,17 +10,18 @@ from backend.config import CHAIN_CONFIG, SOLANA_PRIVATE_KEY, SOLANA_WALLET_ADDRE
 
 try:
     import base58
-    from solana.rpc.api import Client as SolanaClient
-    from solana.rpc.commitment import Confirmed
-    from solana.keypair import Keypair
-    from solana.publickey import PublicKey
-    from solana.transaction import Transaction
-    from solana.system_program import transfer as sol_transfer
-    from solana.system_program import TransferParams
+    import asyncio
+    from solana.rpc.async_api import AsyncClient
+    from solders.keypair import Keypair
+    from solders.pubkey import Pubkey
+    from solders.system_program import transfer as sol_transfer
+    from solders.system_program import TransferParams
+    from solders.transaction import VersionedTransaction
+    from solders.message import MessageV0
     HAS_SOLANA = True
 except ImportError:
     HAS_SOLANA = False
-    print("[!] Solana libraries not installed. Run: pip install solana spl-token base58")
+    print("[!] Solana libraries not installed. Run: pip install solana solders base58")
 
 
 class SolanaHelper:
@@ -34,20 +35,20 @@ class SolanaHelper:
         if SOLANA_RPC:
             self.rpc_url = SOLANA_RPC
 
-        self.client = SolanaClient(self.rpc_url)
+        self.client = AsyncClient(self.rpc_url)
         self.wallet_address = SOLANA_WALLET_ADDRESS
         self.keypair = None
         if SOLANA_PRIVATE_KEY:
             try:
                 raw = base58.b58decode(SOLANA_PRIVATE_KEY)
-                self.keypair = Keypair.from_secret_key(raw[:32])
-                self.wallet_address = str(self.keypair.public_key)
+                self.keypair = Keypair.from_bytes(raw)
+                self.wallet_address = str(self.keypair.pubkey())
             except Exception as e:
                 raise ValueError(f"Invalid SOLANA_PRIVATE_KEY: {e}")
 
     def is_connected(self):
         try:
-            return self.client.is_connected()
+            return asyncio.run(self.client.is_connected())
         except Exception:
             return False
 
