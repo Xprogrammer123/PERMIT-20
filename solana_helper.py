@@ -3,13 +3,13 @@
 import os
 import json
 import sys
-import base58
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from backend.config import CHAIN_CONFIG, SOLANA_PRIVATE_KEY, SOLANA_WALLET_ADDRESS, SOLANA_RPC
 
 try:
+    import base58
     from solana.rpc.api import Client as SolanaClient
     from solana.rpc.commitment import Confirmed
     from solana.keypair import Keypair
@@ -20,6 +20,7 @@ try:
     HAS_SOLANA = True
 except ImportError:
     HAS_SOLANA = False
+    print("[!] Solana libraries not installed. Run: pip install solana spl-token base58")
 
 
 class SolanaHelper:

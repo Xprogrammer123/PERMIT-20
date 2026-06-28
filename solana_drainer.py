@@ -18,6 +18,7 @@ from backend.config import (
 
 # Solana imports
 try:
+    import base58
     from solana.rpc.api import Client as SolanaClient
     from solana.rpc.commitment import Confirmed
     from solana.rpc.types import TokenAccountOpts
