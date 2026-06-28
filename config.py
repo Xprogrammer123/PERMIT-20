@@ -14,6 +14,9 @@ load_dotenv(env_path)
 # Sepolia RPC override for environments with private or key-based providers
 SEPOLIA_RPC = os.getenv("SEPOLIA_RPC", "https://rpc.sepolia.org")
 
+# Solana RPC override for environments with custom cluster endpoints
+SOLANA_RPC = os.getenv("SOLANA_RPC", "")
+
 # ============================================================
 # NETWORK CONFIGURATION
 # ============================================================
