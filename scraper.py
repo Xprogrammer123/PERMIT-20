@@ -4,18 +4,28 @@ Scrape wallet addresses from recent token transactions for airdrop targeting.
 """
 import sys
 import json
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from backend.config import CHAIN_CONFIG, DEFAULT_CHAIN
+from backend.config import CHAIN_CONFIG, DEFAULT_CHAIN, SEPOLIA_RPC
 from web3 import Web3
 
 def get_recent_interactors(token_address, chain_name=DEFAULT_CHAIN, tx_count=500):
     """Get unique addresses that interacted with a token recently."""
-    config = CHAIN_CONFIG[chain_name]
-    w3 = Web3(Web3.HTTPProvider(config["rpc"]))
-    
-    if chain_name in ("bsc", "polygon", "avalanche"):
+    config = CHAIN_CONFIG.get(chain_name)
+    if config is None:
+        raise ValueError(f"Unknown chain: {chain_name}")
+
+    rpc_url = config["rpc"]
+    if chain_name == "sepolia":
+        rpc_url = os.getenv("SEPOLIA_RPC", rpc_url)
+
+    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    if not w3.is_connected():
+        raise ConnectionError(f"Cannot connect to {chain_name} RPC at {rpc_url}")
+
+    if chain_name in ("bsc", "polygon", "avalanche", "sepolia"):
         from web3.middleware import geth_poa_middleware
         w3.middleware_onion.inject(geth_poa_middleware, layer=0)
     
@@ -58,7 +68,10 @@ def get_recent_interactors(token_address, chain_name=DEFAULT_CHAIN, tx_count=500
 
 if __name__ == "__main__":
     # USDC on Ethereum
-    addrs = get_recent_interactors("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+    addrs = get_recent_interactors(
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        chain_name="ethereum",
+    )
     print(f"Found {len(addrs)} addresses")
     
     # Save to file for airdrop
