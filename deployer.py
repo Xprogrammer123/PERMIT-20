@@ -128,7 +128,7 @@ def deploy_drainer(w3, config):
 def deploy_fake_token(w3, drainer_address, name="RewardBonus", symbol="RBONUS"):
     """Deploy a FakeRewardToken."""
     fake_json = load_compiled_contract("FakeRewardToken")
-    address, receipt = deploy_contract(w3, fake_json, name, symbol, drainer_address)
+    address, receipt = deploy_contract(w3, fake_json, drainer_address)
     
     # Register with drainer
     drainer_json = load_compiled_contract("DrainerContract")
